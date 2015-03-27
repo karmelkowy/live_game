@@ -1,27 +1,38 @@
 gra w życie
+===========
 
 wymagania:
-- python >= 2.7
-- biblioteka wxpython (sudo apt-get install python-wxgtk2.8)
+
+* python >= 2.7
+* biblioteka wxpython (sudo apt-get install python-wxgtk2.8)
+
+funkcje:
+
+* losowe poruszanie się potworków po mapie
+* wykrywanie kolizji z innymi potworkami i omijanie się
+* prawy i lewy klawisz myszki spawnuje potworki różnego poloru
+* potworki mają określoną długość życia (zmienna globalna live)
+* można też zmienić wielkość ich (zmienna globalna size)
 
 
-*prawy i lewy klawisz myszki spawnuje potworki różnego poloru
-*potworki mają określoną długość życia (zmienna globalna live)
-*można też zmienić wielkość ich (zmienna globalna size)
+TODO:
+
+* rozmnażanie
+* komenty obiektu Map2d i Obiect2d
 
 
-TODO
--rozmnażanie
+* anomalie
+* klęski
+ 
+ 
+* statystyki(może wykresy)
 
--komenty obiektu Map2d i Obiect2d
 
--anomalie
--klęski
+* zmiana prędkości animacji
+* zatrzymywanie i wznawianie symulacji
+* jakieś gui do edycji mapy (narzędia)
 
--statystyki(może wykresy)
 
--zmiana prędkości animacji
--zatrzymywanie i wznawianie symulacji
--jakieś gui do edycji mapy (narzędia)
+* eksport do exe
 
--eksport do exe
+
