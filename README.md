@@ -33,6 +33,4 @@ TODO:
 * jakieś gui do edycji mapy (narzędia)
 
 
-* eksport do exe
-
-
+* eksport do exe'ka
