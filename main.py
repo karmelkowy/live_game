@@ -23,6 +23,7 @@ class Object2d:
         self.color = color
         self.if_label = if_label
         self.dead_age = dead_age
+        self.can_multiply = False
         if self.dead_age == 0:
             self.dead_age = random.choice(live)
 
@@ -37,8 +38,19 @@ class Object2d:
         x, y = self.pos
         x = x*self.s
         y = y*self.s
-        dc.SetPen(wx.Pen(self.color, 1))
-        dc.SetBrush(wx.Brush(self.color, wx.SOLID))
+        if self.age < 10:
+            color = "PINK"
+        elif self.age >= 10 and self.age < self.dead_age - 5:
+            self.can_multiply = True
+            color = self.color
+        elif self.age >= self.dead_age - 5:
+            self.can_multiply = False
+            color = "GREY"
+
+
+
+        dc.SetPen(wx.Pen(color, 1))
+        dc.SetBrush(wx.Brush(color, wx.SOLID))
         dc.DrawRectangle(x, y, self.s, self.s)
         dc.SetFont(wx.Font(12, wx.MODERN, wx.NORMAL, wx.NORMAL))
         dc.SetPen(wx.Pen(wx.NamedColour('black'), 20))
@@ -58,9 +70,12 @@ class Map2d:
         self.obiekty = []
         self.mapa = {}
 
-    def Add(self, obj2d):
-        self.obiekty.append(obj2d)
-        
+    def Add(self, obj, instant=False):
+        if not self.Colision(obj.pos, obj):
+            self.obiekty.append(obj)
+        elif instant:
+            self.obiekty.append(obj)
+
     def GetName(self, pos):
         for obj in self.obiekty:
             if obj.pos == pos:
@@ -108,14 +123,36 @@ class MyFrame(wx.Frame):
         # określenie wymierów mapy
         self.w, self.h = 600/self.s, 600/self.s
 
-        # dudowanie layoutu
+        self.tools = ['red', 'green', 'rubber']
+        self.left_tool = self.tools[0]
+        self.right_tool = self.tools[2]
+
+        self.absolute_live_time = 0
+
+
+        # dodowanie layoutu
         main_panel = wx.Panel(self, wx.ID_ANY)
         main_panel.SetFocus()
 
         box = wx.BoxSizer(wx.VERTICAL)
         self.panel = wx.Panel(main_panel, wx.ID_ANY, size=(self.w*self.s, self.h*self.s))
         box.Add(self.panel, 1, wx.EXPAND)
+
+        button_box = wx.BoxSizer(wx.HORIZONTAL)
+
+        stop_play_button = wx.Button(main_panel, -1, 'Stop')
+        button_box.Add(stop_play_button, 1, wx.EXPAND)
+        self.Bind(wx.EVT_BUTTON, self.playStop, stop_play_button)
+
+        for tool in self.tools:
+            tool_btn = wx.Button(main_panel, -1, tool)
+            button_box.Add(tool_btn, 1, wx.EXPAND)
+            self.Bind(wx.EVT_BUTTON, self.toolChange, tool_btn)
+
+        box.Add(button_box, 0)
+
         main_panel.SetSizer(box)
+
 
         # bindowanie eventów
         self.panel.Bind(wx.EVT_MOUSE_EVENTS, self.OnMouse)
@@ -131,25 +168,50 @@ class MyFrame(wx.Frame):
         #self.timer.Stop()
         #self.timer.Start(100)
 
-        self.SetSize((self.w*self.s, self.h*self.s))
+        self.SetSize((self.w*self.s, self.h*self.s+50))
         self.Refresh()
         self.Centre()
+
 
         self.map = Map2d()
 
         for n in range(20):
-            man = Object2d()
-            man.pos = (n,n)
-            man.color = "GREEN"
-            #man.if_label = True
-            self.map.Add(man)
+            pos = (n,n)
+            self.spawn(pos, "GREEN")
 
         for n in range(20):
-            man = Object2d()
-            man.pos = (self.w-n,self.h-n)
-            man.color = "RED"
-            #man.if_label = True
-            self.map.Add(man)
+            pos = (self.w-n,self.h-n)
+            self.spawn(pos, "RED")
+
+    def spawn(self, pos, color, instant=False):
+        obj = Object2d()
+        obj.pos = (pos[0],pos[1])
+        obj.color = color
+        self.map.Add(obj, instant)
+
+
+    def toolChange(self, evt):
+        self.left_tool = evt.GetEventObject().GetLabel()
+
+    def playStop(self, evt):
+        button = evt.GetEventObject()
+        if self.timer.IsRunning():
+            self.timer.Stop()
+            button.SetLabel("Start")
+        else:
+            button.SetLabel("Stop")
+            self.timer.Start()
+
+    def rubber(self, pos):
+        rub_size = 4
+        for x in range(rub_size):
+            for y in range(rub_size):
+                new_pos = pos[0]+x-rub_size/2, pos[1]+y-rub_size/2
+                obj_list = self.map.mapa.get(new_pos, None)
+                if obj_list is not None:
+                    for obj in obj_list:
+                        self.map.obiekty.remove(obj)
+                        del obj
 
 
     def Move(self, obj):
@@ -179,8 +241,17 @@ class MyFrame(wx.Frame):
         if self.map.Colision(new_pos, obj):
             #print "kolizja w (%d,%d)" % new_pos
 
-            # zmiana kierunku w przypadku kolizji
-            obj.ChooseDirection()
+            obj_list = self.map.mapa[new_pos]
+            colision_obj = obj_list[0]
+            if obj.color != colision_obj.color and obj.can_multiply and colision_obj.can_multiply:
+                obj.ChooseDirection()
+                colision_obj.ChooseDirection()
+                self.map.CreateColisionMap()
+                child_color = random.choice(('RED', 'GREEN'))
+                self.spawn(new_pos, child_color, True)
+            else:
+                # zmiana kierunku w przypadku kolizji z tym samym kolorem
+                obj.ChooseDirection()
 
         else:
             # zrobienie kroku
@@ -195,22 +266,27 @@ class MyFrame(wx.Frame):
         x /= self.s
         y /= self.s
         pos = x, y
+        self.map.CreateColisionMap()
         if event.LeftIsDown():
-            print "lewy (%dm,%d)" % pos
-            man = Object2d()
-            man.pos = (pos[0],pos[1])
-            man.color = "RED"
-            self.map.Add(man)
-
+            if self.left_tool == 'red':
+                self.spawn(pos, "RED")
+            elif self.left_tool == 'green':
+                self.spawn(pos, "GREEN")
+            elif self.left_tool == 'rubber':
+                self.rubber(pos)
 
         if event.RightIsDown():
-            print "prawy (%d,%d)" % pos
-            man = Object2d()
-            man.pos = (pos[0],pos[1])
-            man.color = "GREEN"
-            self.map.Add(man)
+            if self.right_tool == 'red':
+                self.spawn(pos, "RED")
+            elif self.right_tool == 'green':
+                self.spawn(pos, "GREEN")
+            elif self.right_tool == 'rubber':
+                self.rubber(pos)
+        self.Refresh()
+
 
     def OnTimer(self, event):
+        self.timer.Stop()
         # dla każdego obiektu na mapie
         for obj in self.map.obiekty:
             # losowanie czy ma sie zmienić kierunek
@@ -223,22 +299,47 @@ class MyFrame(wx.Frame):
             # zwiększenie wieku
             obj.age += 1
 
-            if obj.age >= obj.dead_age:
+            if obj.age > obj.dead_age:
                 self.map.obiekty.remove(obj)
-
                 del obj
+
         # odświerzenie panelu rysującego ( wykonanie def OnPaint )
         self.Refresh()
+        self.absolute_live_time += 1
+        self.timer.Start()
+
+
 
     def OnKeyPress(self, event):
         key_code = event.GetKeyCode()
         if key_code == wx.WXK_ESCAPE:
             exit()            
 
-    def OnPaint( self, event):
+    def OnPaint(self, event):
         dc = wx.PaintDC(self.panel)
         dc.Clear()
         self.map.Draw(dc)
+
+        n_child = 0
+        n_man = 0
+        n_woman = 0
+        n_grandpa = 0
+        for obj in self.map.obiekty:
+            if obj.age < 10:
+                n_child += 1
+            elif obj.age >= 10 and obj.age < obj.dead_age - 5:
+                if obj.color == "RED":
+                    n_man += 1
+                else:
+                    n_woman += 1
+            elif obj.age >= obj.dead_age - 5:
+                n_grandpa += 1
+
+        print 10*"\n"
+        print self.absolute_live_time
+        print "dzieci: %d\nkobiet: %d\nmężczyzn: %d\ndziadków: %d" % (n_child, n_woman, n_man, n_grandpa)
+        print "w sumie: %d" % (n_child + n_man + n_woman + n_grandpa)
+
 
     def __repr__(self):
         return str(self.mapa)

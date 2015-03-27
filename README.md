@@ -28,9 +28,9 @@ TODO:
 * statystyki(może wykresy)
 
 
-* zmiana prędkości animacji
-* zatrzymywanie i wznawianie symulacji
-* jakieś gui do edycji mapy (narzędia)
+* zmiana prędkości animacji +
+* zatrzymywanie i wznawianie symulacji +
+* jakieś gui do edycji mapy (narzędia) +
 
 
 * eksport do exe'ka
