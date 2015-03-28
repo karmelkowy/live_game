@@ -9,28 +9,34 @@ wymagania:
 funkcje:
 
 * losowe poruszanie się potworków po mapie
-* wykrywanie kolizji z innymi potworkami i omijanie się
-* prawy i lewy klawisz myszki spawnuje potworki różnego poloru
+* wykrywanie kolizji z innymi potworkami i omijanie się albo rozmnażanie
 * potworki mają określoną długość życia (zmienna globalna live)
-* można też zmienić wielkość ich (zmienna globalna size)
+* potworki umierają
+* potworki zmieniają kolor w zależności od fazy życia (różowy - dziecko; czerwony, zielony - dorosły; szzart - starzec)
+* możliwość zatrzymywania animacji
+* prawy klawisz to gumka 
+* funkcje lewego klawisza wybiera się przez przyciski na dole
+* w terminalu wyświetlają się podstawowe statystyki 
+* można zmienić ilość i zarazem wielkość pojedyńczych pól (zmienna globalna size)
 
 
 TODO:
 
-* rozmnażanie
-* komenty obiektu Map2d i Obiect2d
+* uzupełnić komenty
 
 
 * anomalie
 * klęski
+* jakieś guziczki do tego
  
- 
-* statystyki(może wykresy)
+* wyświetlanie statystyk w frame
+* zmienić layout przycisków
+* poprawić nazewnictwo w głównym layoucie
+
+* rozwiązać problem ze zbyt dużym rozmnarzaniem, zagęszczeniem -> crashe, zwiechami
 
 
-* zmiana prędkości animacji +
-* zatrzymywanie i wznawianie symulacji +
-* jakieś gui do edycji mapy (narzędia) +
-
+* zamniast zabawy w kolorki jako typ postaci dodać zmienną sex i na jej podstawie określać płeć
+* usunąć wszystkie pozostałości po kolorach tak aby były one w jednym miescu w jakimś słowniu
 
 * eksport do exe'ka

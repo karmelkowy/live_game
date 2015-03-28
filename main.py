@@ -336,7 +336,7 @@ class MyFrame(wx.Frame):
                 n_grandpa += 1
 
         print 10*"\n"
-        print self.absolute_live_time
+        print "cykl zegara %d" % self.absolute_live_time
         print "dzieci: %d\nkobiet: %d\nmężczyzn: %d\ndziadków: %d" % (n_child, n_woman, n_man, n_grandpa)
         print "w sumie: %d" % (n_child + n_man + n_woman + n_grandpa)
 
