@@ -20,7 +20,7 @@ funkcje:
 * można zmienić ilość i zarazem wielkość pojedyńczych pól (zmienna globalna size)
 * podział na gridy w których zmienna jest szansa na rozmnożenie
 * losowe śmieci w przypodku zbyt dużego zagęszczenia
-
+* można stawiać ściany blokujące ruch
 
 TODO:
 

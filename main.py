@@ -6,7 +6,23 @@ live = range(80, 110)
 # wielkość pojedyńczego obiektu im większe tym mniej ich na ekranie
 size = 5
 
-class Object2d:
+class Wall:
+    s = size
+    def __init__(self, pos=(0,0), color="BLACK"):
+        self.pos = pos
+        self.color = color
+
+    def Draw(self, dc):
+        x, y = self.pos
+        x = x*self.s
+        y = y*self.s
+        dc.SetPen(wx.Pen(self.color, 1))
+        dc.SetBrush(wx.Brush(self.color, wx.SOLID))
+        dc.DrawRectangle(x, y, self.s, self.s)
+
+
+
+class Person:
     s = size
     directions_map = {'RIGHT': (1, 0),
                       'DOWN': (0, 1),
@@ -64,30 +80,37 @@ class Object2d:
     
 class Map2d:
     def __init__(self):
-        self.obiekty = []
+        self.people = []
         self.mapa = {}
         self.born_ratio_map = {}
+        self.objects = []
 
     def Add(self, obj, instant=False):
         if not self.Colision(obj.pos, obj):
-            self.obiekty.append(obj)
+            if isinstance(obj, Person):
+                self.people.append(obj)
+            else:
+                self.objects.append(obj)
         elif instant:
-            self.obiekty.append(obj)
+            if isinstance(obj, Person):
+                self.people.append(obj)
+            else:
+                self.objects.append(obj)
 
     def GetName(self, pos):
-        for obj in self.obiekty:
+        for obj in self.people:
             if obj.pos == pos:
                 return obj.name
 
     def Draw(self, dc):
-        for obj in self.obiekty:
+        for obj in self.people:
             obj.Draw(dc)
 
 
 
     def CreateColisionMap(self):
         self.mapa = {}
-        for obj in self.obiekty:
+        for obj in self.people + self.objects:
             pos = obj.pos
             obj_list = self.mapa.get(pos, None)
             if obj_list is None:
@@ -95,6 +118,7 @@ class Map2d:
             else:
                 obj_list.append(obj)
                 self.mapa[pos] = obj_list
+
         
     def Colision(self, pos, self_obj):
         obj_list = self.mapa.get(pos, None)
@@ -123,9 +147,10 @@ class MyFrame(wx.Frame):
         # określenie wymierów mapy
         self.w, self.h = 1200/self.s, 600/self.s
 
-        self.tools = ['man', 'woman', 'rubber']
+        self.tools = ['man', 'woman', 'rubber', 'wall']
         self.left_tool = self.tools[0]
         self.right_tool = self.tools[2]
+        self.tool_size = 50
 
         self.absolute_live_time = 0
         self.born_ratio = 0
@@ -178,11 +203,11 @@ class MyFrame(wx.Frame):
 
         for n in range(20):
             pos = (n,n)
-            self.spawn(pos, "woman")
+            self.spawnPerson(pos, "woman")
 
         for n in range(20):
             pos = (self.w-n,self.h-n)
-            self.spawn(pos, "man")
+            self.spawnPerson(pos, "man")
 
 
 
@@ -199,14 +224,16 @@ class MyFrame(wx.Frame):
             self.timer.Start()
 
     def rubber(self, pos):
-        rub_size = 50
-        for x in range(rub_size):
-            for y in range(rub_size):
-                new_pos = pos[0]+x-rub_size/2, pos[1]+y-rub_size/2
+        for x in range(self.tool_size):
+            for y in range(self.tool_size):
+                new_pos = pos[0]+x-self.tool_size/2, pos[1]+y-self.tool_size/2
                 obj_list = self.map.mapa.get(new_pos, None)
                 if obj_list is not None:
                     for obj in obj_list:
-                        self.map.obiekty.remove(obj)
+                        if isinstance(obj, Person):
+                            self.map.people.remove(obj)
+                        else:
+                            self.map.objects.remove(obj)
                         del obj
 
 
@@ -214,7 +241,7 @@ class MyFrame(wx.Frame):
         #{grid:[n_dzieci, n_dorosłych]}
         # {(0,0):[3,2]}
         map = {}
-        for obj in self.map.obiekty:
+        for obj in self.map.people:
             x, y = obj.pos
             grid = x/10, y/10
             n_child, n_parnt = map.get(grid, (0, 0))
@@ -238,10 +265,16 @@ class MyFrame(wx.Frame):
                 ratio = 0
             self.born_ratio_map[grid] = ratio
 
+    def spawnWall(self, pos, color="BLACK", instant=False):
+        obj = Wall()
+        obj.pos = pos
+        obj.color = color
+        self.map.Add(obj, instant)
 
-    def spawn(self, pos, sex, instant=False, age=0):
-        obj = Object2d()
-        obj.pos = (pos[0],pos[1])
+
+    def spawnPerson(self, pos, sex, instant=False, age=0):
+        obj = Person()
+        obj.pos = pos
         obj.sex = sex
         obj.age = age
         self.map.Add(obj, instant)
@@ -275,24 +308,25 @@ class MyFrame(wx.Frame):
 
             obj_list = self.map.mapa[new_pos]
             colision_obj = obj_list[0]
-            if obj.sex != colision_obj.sex and obj.can_multiply and colision_obj.can_multiply:
-                obj.ChooseDirection()
-                colision_obj.ChooseDirection()
+            if isinstance(colision_obj, Person):
+                if obj.sex != colision_obj.sex and obj.can_multiply and colision_obj.can_multiply:
+                    obj.ChooseDirection()
+                    colision_obj.ChooseDirection()
 
-                #self.map.CreateColisionMap()
-                #self.reCountBornMap()
+                    #self.map.CreateColisionMap()
+                    #self.reCountBornMap()
 
-                grid = (new_pos[0]/10, new_pos[1]/10)
-                ratio = self.born_ratio_map[grid]
-                ratio = int((1 - ratio) * 100)
-                born_chance = random.randint(80, 100)
+                    grid = (new_pos[0]/10, new_pos[1]/10)
+                    ratio = self.born_ratio_map[grid]
+                    ratio = int((1 - ratio) * 100)
+                    born_chance = random.randint(80, 100)
 
-                if born_chance < ratio:
-                    child_sex = random.choice(('man', 'woman'))
-                    self.spawn(new_pos, child_sex, True)
-            else:
-                # zmiana kierunku w przypadku kolizji z tym samym kolorem
-                obj.ChooseDirection()
+                    if born_chance < ratio:
+                        child_sex = random.choice(('man', 'woman'))
+                        self.spawnPerson(new_pos, child_sex, True)
+                else:
+                    # zmiana kierunku w przypadku kolizji z tym samym kolorem
+                    obj.ChooseDirection()
 
         else:
             # zrobienie kroku
@@ -308,20 +342,21 @@ class MyFrame(wx.Frame):
         y /= self.s
         pos = x, y
         self.map.CreateColisionMap()
-        tool_size = 10
         if event.LeftIsDown():
             if self.left_tool == self.tools[0] or self.left_tool == self.tools[1]:
-                for x in range(tool_size):
-                    for y in range(tool_size):
+                for x in range(self.tool_size):
+                    for y in range(self.tool_size):
                         if random.randint(0, 30) == 0:
-                            new_pos = pos[0]-tool_size/2+x, pos[1]-tool_size/2+y
-                            self.spawn(new_pos, self.left_tool, age=11)
+                            new_pos = pos[0]-self.tool_size/2+x, pos[1]-self.tool_size/2+y
+                            self.spawnPerson(new_pos, self.left_tool, age=11)
             elif self.left_tool == 'rubber':
                 self.rubber(pos)
+            elif self.left_tool == 'wall':
+                self.spawnWall(pos, "BROWN")
 
         if event.RightIsDown():
             if self.right_tool == self.tools[0] or self.right_tool == self.tools[1]:
-                self.spawn(pos, self.right_tool)
+                self.spawnPerson(pos, self.right_tool)
             elif self.right_tool == 'rubber':
                 self.rubber(pos)
         self.Refresh()
@@ -335,7 +370,7 @@ class MyFrame(wx.Frame):
 
 
         # dla każdego obiektu na mapie
-        for obj in self.map.obiekty:
+        for obj in self.map.people:
             # losowanie czy ma sie zmienić kierunek
             n = random.randint(0,3)
             if n == 0:
@@ -360,7 +395,7 @@ class MyFrame(wx.Frame):
                     obj_to_del = True
 
             if obj_to_del:
-                self.map.obiekty.remove(obj)
+                self.map.people.remove(obj)
                 del obj
 
         # odświerzenie panelu rysującego ( wykonanie def OnPaint )
@@ -382,6 +417,10 @@ class MyFrame(wx.Frame):
         dc = wx.PaintDC(self.panel)
         dc.Clear()
         self.map.Draw(dc)
+
+        for obj in self.map.objects:
+            obj.Draw(dc)
+
         '''
         for grid, ratio in self.born_ratio_map.iteritems():
             ratio = int((1 - ratio) * 10)
@@ -397,7 +436,7 @@ class MyFrame(wx.Frame):
         n_woman = 0
         n_grandpa = 0
         sum_wieku = 0
-        for obj in self.map.obiekty:
+        for obj in self.map.people:
             sum_wieku += obj.age
             if obj.age < obj.child_age:
                 n_child += 1
