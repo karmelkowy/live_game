@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import wx, random
+import wx, random, time
 
 #zakres losowości długości życia
 live = range(80, 110)
@@ -17,15 +17,13 @@ class Object2d:
                       'LEFT_UP': (-1, -1),
                       'LEFT_DOWN': (-1, 1),
                       'STAY': (0, 0)}
-    def __init__(self, pos=(0,0), name='unknown', color='BLACK', if_label=False, dead_age=0):
+    child_age = 10
+    old_age = 5
+    def __init__(self, pos=(0,0), sex="man"):
         self.pos = pos
-        self.name = name
-        self.color = color
-        self.if_label = if_label
-        self.dead_age = dead_age
+        self.sex = sex
         self.can_multiply = False
-        if self.dead_age == 0:
-            self.dead_age = random.choice(live)
+        self.dead_age = random.choice(live)
 
         self.age = 0
         self.dir = None
@@ -38,12 +36,16 @@ class Object2d:
         x, y = self.pos
         x = x*self.s
         y = y*self.s
-        if self.age < 10:
+        if self.age < self.child_age:
             color = "PINK"
-        elif self.age >= 10 and self.age < self.dead_age - 5:
+        elif self.age >= self.child_age and self.age < self.dead_age - self.old_age:
             self.can_multiply = True
-            color = self.color
-        elif self.age >= self.dead_age - 5:
+            if self.sex == "man":
+                color = "RED"
+            else:
+                color = "GREEN"
+
+        elif self.age >= self.dead_age - self.old_age:
             self.can_multiply = False
             color = "GREY"
 
@@ -52,11 +54,6 @@ class Object2d:
         dc.SetPen(wx.Pen(color, 1))
         dc.SetBrush(wx.Brush(color, wx.SOLID))
         dc.DrawRectangle(x, y, self.s, self.s)
-        dc.SetFont(wx.Font(12, wx.MODERN, wx.NORMAL, wx.NORMAL))
-        dc.SetPen(wx.Pen(wx.NamedColour('black'), 20))
-
-        if self.if_label:
-            dc.DrawText(str(self.age),x,y)
 
     def getNextPos(self):
         return self.directions_map[self.dir]
@@ -69,6 +66,7 @@ class Map2d:
     def __init__(self):
         self.obiekty = []
         self.mapa = {}
+        self.born_ratio_map = {}
 
     def Add(self, obj, instant=False):
         if not self.Colision(obj.pos, obj):
@@ -84,12 +82,14 @@ class Map2d:
     def Draw(self, dc):
         for obj in self.obiekty:
             obj.Draw(dc)
-        
+
+
+
     def CreateColisionMap(self):
         self.mapa = {}
         for obj in self.obiekty:
             pos = obj.pos
-            obj_list = self.mapa.get(pos, None) 
+            obj_list = self.mapa.get(pos, None)
             if obj_list is None:
                 self.mapa[pos] = [obj]
             else:
@@ -117,17 +117,18 @@ class Map2d:
 
 class MyFrame(wx.Frame):
     def __init__(self):
-        wx.Frame.__init__( self, None, title="My First Game" )
+        wx.Frame.__init__( self, None, title="Gra w życie")
         
         self.s = size
         # określenie wymierów mapy
-        self.w, self.h = 600/self.s, 600/self.s
+        self.w, self.h = 1200/self.s, 600/self.s
 
-        self.tools = ['red', 'green', 'rubber']
+        self.tools = ['man', 'woman', 'rubber']
         self.left_tool = self.tools[0]
         self.right_tool = self.tools[2]
 
         self.absolute_live_time = 0
+        self.born_ratio = 0
 
 
         # dodowanie layoutu
@@ -161,7 +162,7 @@ class MyFrame(wx.Frame):
         self.panel.Bind( wx.EVT_PAINT, self.OnPaint )
 
         self.timer = wx.Timer(self)
-        self.timer.Start(200)
+        self.timer.Start(5)
         self.Bind(wx.EVT_TIMER, self.OnTimer, self.timer)
 
         # aby zmienić prędkość
@@ -177,17 +178,12 @@ class MyFrame(wx.Frame):
 
         for n in range(20):
             pos = (n,n)
-            self.spawn(pos, "GREEN")
+            self.spawn(pos, "woman")
 
         for n in range(20):
             pos = (self.w-n,self.h-n)
-            self.spawn(pos, "RED")
+            self.spawn(pos, "man")
 
-    def spawn(self, pos, color, instant=False):
-        obj = Object2d()
-        obj.pos = (pos[0],pos[1])
-        obj.color = color
-        self.map.Add(obj, instant)
 
 
     def toolChange(self, evt):
@@ -203,7 +199,7 @@ class MyFrame(wx.Frame):
             self.timer.Start()
 
     def rubber(self, pos):
-        rub_size = 4
+        rub_size = 50
         for x in range(rub_size):
             for y in range(rub_size):
                 new_pos = pos[0]+x-rub_size/2, pos[1]+y-rub_size/2
@@ -213,6 +209,42 @@ class MyFrame(wx.Frame):
                         self.map.obiekty.remove(obj)
                         del obj
 
+
+    def reCountBornMap(self):
+        #{grid:[n_dzieci, n_dorosłych]}
+        # {(0,0):[3,2]}
+        map = {}
+        for obj in self.map.obiekty:
+            x, y = obj.pos
+            grid = x/10, y/10
+            n_child, n_parnt = map.get(grid, (0, 0))
+            if obj.age < 10:
+                n_child += 1
+            elif obj.can_multiply:
+                n_parnt +=1
+            map[grid] = n_child, n_parnt
+
+        self.born_ratio_map = {}
+        self.grid_to_clear = []
+        for grid, values in map.iteritems():
+            n_child, n_parnt = values
+            if n_parnt+n_child > 20:
+                self.grid_to_clear.append(grid)
+
+            parents = n_child+n_parnt
+            if parents > 0:
+                ratio = float(n_child)/(parents)
+            else:
+                ratio = 0
+            self.born_ratio_map[grid] = ratio
+
+
+    def spawn(self, pos, sex, instant=False, age=0):
+        obj = Object2d()
+        obj.pos = (pos[0],pos[1])
+        obj.sex = sex
+        obj.age = age
+        self.map.Add(obj, instant)
 
     def Move(self, obj):
         # pobieranie obecnej pozycji
@@ -243,12 +275,21 @@ class MyFrame(wx.Frame):
 
             obj_list = self.map.mapa[new_pos]
             colision_obj = obj_list[0]
-            if obj.color != colision_obj.color and obj.can_multiply and colision_obj.can_multiply:
+            if obj.sex != colision_obj.sex and obj.can_multiply and colision_obj.can_multiply:
                 obj.ChooseDirection()
                 colision_obj.ChooseDirection()
-                self.map.CreateColisionMap()
-                child_color = random.choice(('RED', 'GREEN'))
-                self.spawn(new_pos, child_color, True)
+
+                #self.map.CreateColisionMap()
+                #self.reCountBornMap()
+
+                grid = (new_pos[0]/10, new_pos[1]/10)
+                ratio = self.born_ratio_map[grid]
+                ratio = int((1 - ratio) * 100)
+                born_chance = random.randint(80, 100)
+
+                if born_chance < ratio:
+                    child_sex = random.choice(('man', 'woman'))
+                    self.spawn(new_pos, child_sex, True)
             else:
                 # zmiana kierunku w przypadku kolizji z tym samym kolorem
                 obj.ChooseDirection()
@@ -258,7 +299,7 @@ class MyFrame(wx.Frame):
             obj.pos = new_pos
 
         # przeliczenie mapy kolizji
-        self.map.CreateColisionMap()
+        #self.map.CreateColisionMap()
 
     def OnMouse(self,event):
         self.mouse_pos = event.GetPosition()
@@ -267,26 +308,32 @@ class MyFrame(wx.Frame):
         y /= self.s
         pos = x, y
         self.map.CreateColisionMap()
+        tool_size = 10
         if event.LeftIsDown():
-            if self.left_tool == 'red':
-                self.spawn(pos, "RED")
-            elif self.left_tool == 'green':
-                self.spawn(pos, "GREEN")
+            if self.left_tool == self.tools[0] or self.left_tool == self.tools[1]:
+                for x in range(tool_size):
+                    for y in range(tool_size):
+                        if random.randint(0, 30) == 0:
+                            new_pos = pos[0]-tool_size/2+x, pos[1]-tool_size/2+y
+                            self.spawn(new_pos, self.left_tool, age=11)
             elif self.left_tool == 'rubber':
                 self.rubber(pos)
 
         if event.RightIsDown():
-            if self.right_tool == 'red':
-                self.spawn(pos, "RED")
-            elif self.right_tool == 'green':
-                self.spawn(pos, "GREEN")
+            if self.right_tool == self.tools[0] or self.right_tool == self.tools[1]:
+                self.spawn(pos, self.right_tool)
             elif self.right_tool == 'rubber':
                 self.rubber(pos)
         self.Refresh()
 
-
     def OnTimer(self, event):
         self.timer.Stop()
+        start = time.time()
+        self.reCountBornMap()
+        self.map.CreateColisionMap()
+
+
+
         # dla każdego obiektu na mapie
         for obj in self.map.obiekty:
             # losowanie czy ma sie zmienić kierunek
@@ -295,17 +342,31 @@ class MyFrame(wx.Frame):
                 # zmiana kierunku
                 obj.ChooseDirection()
             # ruch obiektu
+
             self.Move(obj)
+
             # zwiększenie wieku
             obj.age += 1
-
+            obj_to_del = False
             if obj.age > obj.dead_age:
+                obj_to_del = True
+
+            for grid in self.grid_to_clear:
+                x, y = grid[0]*10, grid[1]*10
+                obj_x, obj_y = obj.pos
+                rand = random.randint(0, 10)
+                if (obj_x > x and obj_x < x + 10) and (obj_y > y and obj_y < y + 10) and rand == 0:
+                    #obj.dead_age = obj.age + random.randint(5, 8)
+                    obj_to_del = True
+
+            if obj_to_del:
                 self.map.obiekty.remove(obj)
                 del obj
 
         # odświerzenie panelu rysującego ( wykonanie def OnPaint )
         self.Refresh()
         self.absolute_live_time += 1
+        self.time_of_cykl = time.time() - start
         self.timer.Start()
 
 
@@ -316,30 +377,49 @@ class MyFrame(wx.Frame):
             exit()            
 
     def OnPaint(self, event):
+        self.reCountBornMap()
+
         dc = wx.PaintDC(self.panel)
         dc.Clear()
         self.map.Draw(dc)
+        '''
+        for grid, ratio in self.born_ratio_map.iteritems():
+            ratio = int((1 - ratio) * 10)
+            x, y = grid[0]*10*self.s, grid[1]*10*self.s
+            dc.DrawText(str(ratio), x, y)
+        '''
+        for grid in self.grid_to_clear:
+            x, y = grid[0]*10*self.s, grid[1]*10*self.s
+            dc.DrawText("clear", x, y)
 
         n_child = 0
         n_man = 0
         n_woman = 0
         n_grandpa = 0
+        sum_wieku = 0
         for obj in self.map.obiekty:
-            if obj.age < 10:
+            sum_wieku += obj.age
+            if obj.age < obj.child_age:
                 n_child += 1
-            elif obj.age >= 10 and obj.age < obj.dead_age - 5:
-                if obj.color == "RED":
+            elif obj.age >= obj.child_age and obj.age < obj.dead_age - 5:
+                if obj.sex == "man":
                     n_man += 1
                 else:
                     n_woman += 1
-            elif obj.age >= obj.dead_age - 5:
+            elif obj.age >= obj.dead_age - obj.old_age:
                 n_grandpa += 1
 
-        print 10*"\n"
-        print "cykl zegara %d" % self.absolute_live_time
-        print "dzieci: %d\nkobiet: %d\nmężczyzn: %d\ndziadków: %d" % (n_child, n_woman, n_man, n_grandpa)
-        print "w sumie: %d" % (n_child + n_man + n_woman + n_grandpa)
+        sum_populacji = n_child + n_man + n_woman + n_grandpa + 0.1
 
+        print 3*"\n"
+
+        print "cykl zegara: %d  , czas cyklu: %f" % (self.absolute_live_time, self.time_of_cykl)
+        print "dzieci: %d\nkobiet: %d\nmężczyzn: %d\ndziadków: %d" % (n_child, n_woman, n_man, n_grandpa)
+        print "w sumie: %d" % (sum_populacji)
+        if sum_populacji > 0:
+            print "srednia wieku: %d" % (sum_wieku/sum_populacji)
+        else:
+            print "srednia wieku: nikt nie żyje"
 
     def __repr__(self):
         return str(self.mapa)

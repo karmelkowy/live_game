@@ -18,6 +18,8 @@ funkcje:
 * funkcje lewego klawisza wybiera się przez przyciski na dole
 * w terminalu wyświetlają się podstawowe statystyki 
 * można zmienić ilość i zarazem wielkość pojedyńczych pól (zmienna globalna size)
+* podział na gridy w których zmienna jest szansa na rozmnożenie
+* losowe śmieci w przypodku zbyt dużego zagęszczenia
 
 
 TODO:
@@ -33,10 +35,5 @@ TODO:
 * zmienić layout przycisków
 * poprawić nazewnictwo w głównym layoucie
 
-* rozwiązać problem ze zbyt dużym rozmnarzaniem, zagęszczeniem -> crashe, zwiechami
-
-
-* zamniast zabawy w kolorki jako typ postaci dodać zmienną sex i na jej podstawie określać płeć
-* usunąć wszystkie pozostałości po kolorach tak aby były one w jednym miescu w jakimś słowniu
 
 * eksport do exe'ka
