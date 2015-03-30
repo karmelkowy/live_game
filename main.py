@@ -13,11 +13,13 @@ max_on_grid = 20
 # maksymalny procent dzieci w danym gridzie, gdy zostanie osiądnięty, szansa na dziecko jest zerowa
 max_per_of_child=20
 
-class Wall:
+class OtherObject:
     s = size
-    def __init__(self, pos=(0,0), color="BLACK"):
+    def __init__(self, pos=(0,0), color="BLACK", type=None, value=0):
         self.pos = pos
         self.color = color
+        self.type = type
+        self.value = value
 
     def Draw(self, dc):
         x, y = self.pos
@@ -112,8 +114,6 @@ class Map2d:
         for obj in self.people:
             obj.Draw(dc)
 
-
-
     def CreateColisionMap(self):
         self.mapa = {}
         for obj in self.people + self.objects:
@@ -125,7 +125,6 @@ class Map2d:
                 obj_list.append(obj)
                 self.mapa[pos] = obj_list
 
-        
     def Colision(self, pos, self_obj):
         obj_list = self.mapa.get(pos, None)
         if obj_list is None:
@@ -154,7 +153,8 @@ class MyFrame(wx.Frame):
         self.w, self.h = 1000/self.s, 600/self.s
 
         # zmienne początkowe
-        self.tools = ['man', 'woman', 'rubber', 'wall']
+        self.tools = ['man', 'woman', 'rubber', 'wall', 'killer', 'borner', 'repair']
+        self.colors = {'wall':'BROWN', 'killer': 'BLACK', 'borner': 'VIOLET', 'repair':'YELLOW'}
         self.left_tool = self.tools[0]
         self.right_tool = self.tools[2]
         self.tool_size = 10
@@ -193,7 +193,7 @@ class MyFrame(wx.Frame):
         label2 = wx.StaticText(main_panel, -1, "Rozmycie pędzla:")
         right_box.Add(label2, 0)
 
-        self.tool_mesh_slider = wx.Slider(main_panel, -1, 0, 0, 100,
+        self.tool_mesh_slider = wx.Slider(main_panel, -1, 100, 0, 100,
             style=wx.SL_HORIZONTAL | wx.SL_LABELS, size=(280, -1))
         right_box.Add(self.tool_mesh_slider, 0)
         self.tool_mesh_slider.Bind(wx.EVT_SLIDER, self.changeToolMesh, self.tool_mesh_slider)
@@ -244,8 +244,8 @@ class MyFrame(wx.Frame):
 
 
     def changeToolMesh(self, evt):
-        mesh = self.tool_size_slider.GetValue()
-        self.tool_mesh = mesh
+        mesh = self.tool_mesh_slider.GetValue()
+        self.tool_mesh = 100 - int(mesh)
         evt.Skip()
 
     def changeToolSize(self, evt):
@@ -275,18 +275,24 @@ class MyFrame(wx.Frame):
 
 
 
-    def spawnWall(self, pos, color="BLACK", instant=False):
-        obj = Wall()
-        obj.pos = pos
-        obj.color = color
-        self.map.Add(obj, instant)
+    def spawnOtherObject(self, pos, type, color="BLACK", value=0,instant=False):
+        x, y = pos
+        if (x >= 0 and x < self.w-1 and y >= 0 and y < self.h-1):
+            obj = OtherObject()
+            obj.value = value
+            obj.type = type
+            obj.pos = pos
+            obj.color = color
+            self.map.Add(obj, instant)
 
     def spawnPerson(self, pos, sex, instant=False, age=0):
-        obj = Person()
-        obj.pos = pos
-        obj.sex = sex
-        obj.age = age
-        self.map.Add(obj, instant)
+        x, y = pos
+        if (x >= 0 and x < self.w-1 and y >= 0 and y < self.h-1):
+            obj = Person()
+            obj.pos = pos
+            obj.sex = sex
+            obj.age = age
+            self.map.Add(obj, instant)
 
     def Move(self, obj):
         # pobieranie obecnej pozycji
@@ -336,6 +342,17 @@ class MyFrame(wx.Frame):
                 else:
                     # zmiana kierunku w przypadku kolizji z tym samym kolorem
                     obj.ChooseDirection()
+            elif colision_obj.type == 'wall':
+                obj.ChooseDirection()
+            elif colision_obj.type == 'repair':
+
+                obj.ChooseDirection()
+                obj.age = obj.child_age
+                return False
+            elif colision_obj.type == 'killer':
+                return True
+
+
 
         else:
             # zrobienie kroku
@@ -343,6 +360,8 @@ class MyFrame(wx.Frame):
 
         # przeliczenie mapy kolizji
         #self.map.CreateColisionMap()
+
+        return False
 
     def reCountBornMap(self):
         #{grid:[n_dzieci, n_dorosłych]}
@@ -414,8 +433,8 @@ class MyFrame(wx.Frame):
                         new_pos = pos[0]-self.tool_size/2+x, pos[1]-self.tool_size/2+y
                         if tool in [self.tools[0], self.tools[1]]:
                             self.spawnPerson(new_pos, tool, age=11)
-                        elif tool == 'wall':
-                            self.spawnWall(new_pos, "BROWN")
+                        elif tool in self.tools[3:]:
+                            self.spawnOtherObject(new_pos, tool, self.colors[tool])
                         elif tool == 'rubber':
                             obj_list = self.map.mapa.get(new_pos, None)
                             if obj_list is not None:
@@ -434,6 +453,26 @@ class MyFrame(wx.Frame):
         self.reCountBornMap()
         self.map.CreateColisionMap()
 
+        for obj in self.map.objects:
+            if obj.type == 'borner':
+                x, y = random.choice(Person.directions_map.values())
+                x = obj.pos[0] + x
+                y = obj.pos[1] + y
+                while (not(x >= 0 and x < self.w-1 and y >= 0 and y < self.h-1)):
+                    x, y = random.choice(Person.directions_map.values())
+                    x = obj.pos[0] + x
+                    y = obj.pos[1] + y
+                new_pos = x, y
+
+                self.reCountBornMap()
+                grid = (new_pos[0]/10, new_pos[1]/10)
+                ratio = self.born_ratio_map.get(grid, 0)
+                ratio = int((1 - ratio) * 100)
+                born_chance = random.randint(100-max_per_of_child, 100)
+
+                if born_chance < ratio:
+                    child_sex = random.choice(('man', 'woman'))
+                    self.spawnPerson(new_pos, child_sex)
 
 
         # dla każdego obiektu na mapie
@@ -445,11 +484,12 @@ class MyFrame(wx.Frame):
                 obj.ChooseDirection()
             # ruch obiektu
 
-            self.Move(obj)
+            obj_to_del = False
+
+            obj_to_del = self.Move(obj)
 
             # zwiększenie wieku
             obj.age += 1
-            obj_to_del = False
             if obj.age > obj.dead_age:
                 obj_to_del = True
 
@@ -535,6 +575,10 @@ class MyFrame(wx.Frame):
             y *= self.s
             x = x - self.tool_size*self.s/2
             y = y - self.tool_size*self.s/2
+            if self.tool_size % 2 == 1:
+                x += self.s/2
+                y += self.s/2
+
             dc.SetPen(wx.Pen("BLACK", 1))
             dc.SetBrush(wx.Brush("WHITE", style=wx.TRANSPARENT))
             dc.DrawRectangle(x, y, self.tool_size*self.s, self.tool_size*self.s)

@@ -29,14 +29,10 @@ funkcje:
 
 TODO:
 --------
-* uzupełnić komenty
-* poprawić problem z pędzlem w wartościach niepażystych
-* problem z kryciem gumki przy wartości 100%
-* zmioenić wartość slidera od czasu z ms na ilość klatek na s
-* zmioenić wartość slidera od krycia z czegośtam na %
 * rozwiązać problem z evt_leave_window - odpowiedzialny za znikanie pędzla
 * wyprowadzić jeszcze kilka zmiennych na wieszch
 * możliwość edycji niektórych zmiennych podczas trwania animacji
+
 * eksport do exe'ka
 
 
